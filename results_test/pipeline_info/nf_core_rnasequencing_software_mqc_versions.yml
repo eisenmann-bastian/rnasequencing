@@ -1,0 +1,5 @@
+FASTQC:
+  fastqc: 0.12.1
+Workflow:
+    nf-core/rnasequencing: v1.0.0dev
+    Nextflow: 25.04.7

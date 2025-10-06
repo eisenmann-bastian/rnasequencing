@@ -1,0 +1,7 @@
+Module	Section	Sample Name	Source
+FastQC	all_sections	SAMPLE1_PE_1	/Users/Nikita/Desktop/Studium/Master/Comp Workflows/project/rnasequencing/work/14/b3478704bfa46af37b94c74145e201/8/SAMPLE1_PE_1_fastqc.zip
+FastQC	all_sections	SAMPLE1_PE_2	/Users/Nikita/Desktop/Studium/Master/Comp Workflows/project/rnasequencing/work/14/b3478704bfa46af37b94c74145e201/9/SAMPLE1_PE_2_fastqc.zip
+FastQC	all_sections	SAMPLE2_PE_1	/Users/Nikita/Desktop/Studium/Master/Comp Workflows/project/rnasequencing/work/14/b3478704bfa46af37b94c74145e201/6/SAMPLE2_PE_1_fastqc.zip
+FastQC	all_sections	SAMPLE2_PE_2	/Users/Nikita/Desktop/Studium/Master/Comp Workflows/project/rnasequencing/work/14/b3478704bfa46af37b94c74145e201/7/SAMPLE2_PE_2_fastqc.zip
+FastQC	all_sections	SAMPLE3_SE_1	/Users/Nikita/Desktop/Studium/Master/Comp Workflows/project/rnasequencing/work/14/b3478704bfa46af37b94c74145e201/4/SAMPLE3_SE_1_fastqc.zip
+FastQC	all_sections	SAMPLE3_SE_2	/Users/Nikita/Desktop/Studium/Master/Comp Workflows/project/rnasequencing/work/14/b3478704bfa46af37b94c74145e201/5/SAMPLE3_SE_2_fastqc.zip
