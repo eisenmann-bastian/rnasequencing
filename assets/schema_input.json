@@ -26,8 +26,19 @@
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
                 "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+            },
+            "library": {
+                "type": "string",
+                "enum": [
+                    "illumina",
+                    "nanopore",
+                    "pacbio",
+                    "bgiseq",
+                    "iontorrent"
+                ],
+                "description": "Sequencing platform or library type must be one of 'illumina', 'nanopore', 'pacbio', 'bgiseq' or 'iontorrent'"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample", "fastq_1", "library"]
     }
 }
