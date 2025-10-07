@@ -5,10 +5,14 @@
 */
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
+include { TRIMGALORE             } from '../modules/nf-core/trimgalore/main'    
+include { SALMON_INDEX           } from '../modules/nf-core/salmon/index/main'    
+include { SALMON_QUANT           } from '../modules/nf-core/salmon/quant/main'    
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
+include { SEQTK_TRIM } from '../modules/nf-core/seqtk/trim/main' 
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,11 +31,37 @@ workflow RNASEQUENCING {
     //
     // MODULE: Run FastQC
     //
-    FASTQC (
+   
+
+    ch_samplesheet.view()
+
+
+    (trimmed_files,seqtk_versions) = SEQTK_TRIM (
         ch_samplesheet
+    )
+    trimmed_files.view()
+
+    FASTQC (
+        trimmed_files
     )
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+
+
+
+
+
+    //seqtk_versions.view()
+    
+    /*(a, b, c, d, e, f) = TRIMGALORE (
+        ch_samplesheet
+    )
+    a.view()
+    b.view()
+    c.view()
+    d.view()
+    e.view()
+    f.view()*/
 
     //
     // Collate and save software versions
@@ -86,8 +116,8 @@ workflow RNASEQUENCING {
     )
 
     emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
-
+    versions            = ch_versions                 // channel: [ path(versions.yml) ]
+   
 }
 
 /*
