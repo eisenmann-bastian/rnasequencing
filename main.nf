@@ -15,7 +15,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { RNASEQUENCING  } from './workflows/rnasequencing'
+include { RNASEQUENCING           } from './workflows/rnasequencing'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_rnasequencing_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_rnasequencing_pipeline'
 include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_rnasequencing_pipeline'
@@ -30,6 +30,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_rnas
 //   This is an example of how to use getGenomeAttribute() to fetch parameters
 //   from igenomes.config using `--genome`
 params.fasta = getGenomeAttribute('fasta')
+params.gtf   = getGenomeAttribute('gtf')
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,6 +45,9 @@ workflow NFCORE_RNASEQUENCING {
 
     take:
     samplesheet // channel: samplesheet read in from --input
+    trimmer    // string: trimmer choice from params
+    fasta      // string: path to fasta file from params
+    gtf        // string: path to gtf file from params
 
     main:
 
@@ -51,7 +55,10 @@ workflow NFCORE_RNASEQUENCING {
     // WORKFLOW: Run pipeline
     //
     RNASEQUENCING (
-        samplesheet
+        samplesheet,
+        trimmer,
+        fasta,
+        gtf
     )
     emit:
     multiqc_report = RNASEQUENCING.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -81,7 +88,10 @@ workflow {
     // WORKFLOW: Run main workflow
     //
     NFCORE_RNASEQUENCING (
-        PIPELINE_INITIALISATION.out.samplesheet
+        PIPELINE_INITIALISATION.out.samplesheet,
+        params.trimmer,
+        params.fasta,
+        params.gtf
     )
     //
     // SUBWORKFLOW: Run completion tasks

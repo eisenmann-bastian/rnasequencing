@@ -82,6 +82,21 @@
                 }
             }
         },
+        "read_trimming_options": {
+            "title": "Read trimming options",
+            "type": "object",
+            "fa_icon": "fas fa-cut",
+            "description": "Options to adjust read trimming criteria.",
+            "properties": {
+                "trimmer": {
+                    "type": "string",
+                    "default": "trimgalore",
+                    "description": "Specifies the trimming tool to use - available options are 'trimgalore' and 'seqtk_trim'.",
+                    "fa_icon": "fas fa-cut",
+                    "enum": ["trimgalore", "seqtk_trim"]
+                }
+            }
+        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -231,6 +246,9 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/read_trimming_options"
         },
         {
             "$ref": "#/$defs/reference_genome_options"
