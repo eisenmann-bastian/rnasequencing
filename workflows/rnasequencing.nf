@@ -11,7 +11,7 @@ include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
-
+include { SAMTOOLS_FAIDX } from '../modules/nf-core/samtools/faidx/main' 
 include { SEQTK_TRIM             } from '../modules/nf-core/seqtk/trim/main' 
 include { STAR_ALIGN } from '../modules/nf-core/star/align/main'
 include { HISAT2_BUILD } from '../modules/nf-core/hisat2/build/main' 
@@ -19,6 +19,8 @@ include { HISAT2_ALIGN } from '../modules/nf-core/hisat2/align/main'
 include { HISAT2_EXTRACTSPLICESITES } from '../modules/nf-core/hisat2/extractsplicesites/main' 
 include { STAR_GENOMEGENERATE } from '../modules/nf-core/star/genomegenerate/main'                                                          
 include { GUNZIP } from '../modules/nf-core/gunzip/main'
+include { PICARD_MARKDUPLICATES } from '../modules/nf-core/picard/markduplicates/main'
+include { SAMTOOLS_SORT } from '../modules/nf-core/samtools/sort/main' 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -29,7 +31,6 @@ workflow RNASEQUENCING {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
-    ch_trimmer     // string: trimmer choice from params
     ch_fasta       // string: path to fasta file from params
     ch_gtf         // string: path to gtf file from params
 
@@ -38,99 +39,99 @@ workflow RNASEQUENCING {
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
 
-    ch_pre_trim_fastqc_reports = FASTQC (
+    FASTQC (
         ch_samplesheet
     )
 
-    files_to_align = ch_samplesheet
-
-    if (ch_trimmer == "none") {
+    if (params.trimmer == "none") {
         println "No trimming will be performed"
-        files_to_align = ch_samplesheet
     } else {
-        if (ch_trimmer == "seqtk_trim") {
+        if (params.trimmer == "seqtk_trim") {
             println "Using seqtk for trimming"
-            (trimmed_files, seqtk_versions) = SEQTK_TRIM (
+            SEQTK_TRIM (
                 ch_samplesheet
             )
-            //ch_multiqc_files = ch_multiqc_files.mix(trimmed_files)
-            ch_versions = ch_versions.mix(seqtk_versions)
-        } else if (ch_trimmer == "trimgalore") {
+            FASTQC_AFTER_TRIM(
+                SEQTK_TRIM.out.reads
+            )
+            ch_versions.mix(SEQTK_TRIM.out.versions)
+        } else if (params.trimmer == "trimgalore") {
             println "Using TrimGalore for trimming"
-            (trimmed_files, logs, unpaired, html, zip, versions) = TRIMGALORE (
+            TRIMGALORE (
                 ch_samplesheet
             )
-            /*trimmed_files.view()
-            ch_multiqc_files = ch_multiqc_files.mix(trimmed_files)
-            ch_versions = ch_versions.mix(versions)*/
+            FASTQC_AFTER_TRIM(
+                TRIMGALORE.out.reads
+            )
         }
-
-        
-        ch_after_trim_fastqc_reports = FASTQC_AFTER_TRIM (
-            trimmed_files
-        )
     }
+
     ch_fasta_for_index = Channel.value([['id':'genome'], file(ch_fasta, checkIfExists: true)])
     ch_gtf_for_index = Channel.value([['id':'gtf'], file(ch_gtf, checkIfExists: true)])
+
     if (params.aligner == 'star') {
         // STAR
         println "Using STAR for alignment"
 
-        // memory issues  
-        (index,versions) = STAR_GENOMEGENERATE (
+        STAR_GENOMEGENERATE (
             ch_fasta_for_index,
             ch_gtf_for_index
         )
-        /*ch_star_index = STAR_GENOMEGENERATE.out.index
-        ch_versions = ch_versions.mix(STAR_GENOMEGENERATE.out.versions)
 
-        (index,versions)=STAR_GENOMEGENERATE {
-            ch_star_refs,
-            ch_star_gtfs
-        }*/
-        ch_samplesheet.view()
-        ch_paths = ch_samplesheet.map { it[1] }
-    
-        (a,b) = GUNZIP (
-            ch_paths
+        GUNZIP (
+            ch_samplesheet.map { it[1] }
         )
-        a.view()
-        b.view()
+
         STAR_ALIGN (
-            a,
-            index,
+            GUNZIP.out.gunzip,
+            STAR_GENOMEGENERATE.out.index,
             ch_gtf_for_index,
             false,
             "Illumina",
             "Dummy"
-        )}
-    else if (params.aligner == 'hisat2') {
-        //HISAT2
-        ch_gtf = Channel.value([['id':'genome'], file(ch_gtf, checkIfExists: true)])
-
-        (txt, versions) = HISAT2_EXTRACTSPLICESITES(
-            ch_gtf
         )
 
-        (index, versions) = HISAT2_BUILD (
+        SAMTOOLS_FAIDX (
             ch_fasta_for_index,
-            ch_gtf,
-            txt
+            [[],[]], //Channel.of([]),
+            false
+        )
+
+        SAMTOOLS_SORT(
+            STAR_ALIGN.out.bam,
+            ch_fasta_for_index,
+            "bai"
+        )
+
+        PICARD_MARKDUPLICATES (
+            SAMTOOLS_SORT.out.bam,
+            ch_fasta_for_index,
+            SAMTOOLS_FAIDX.out.fai
+        )
+    } else if (params.aligner == 'hisat2') {
+        //HISAT2
+        HISAT2_EXTRACTSPLICESITES(
+            ch_gtf_for_index
+        )
+
+        HISAT2_BUILD (
+            ch_fasta_for_index,
+            ch_gtf_for_index,
+            HISAT2_EXTRACTSPLICESITES.out.txt
         )
 
         HISAT2_ALIGN (
-            files_to_align,
-            index,
-            txt
+            ch_samplesheet,
+            HISAT2_BUILD.out.index,
+            HISAT2_EXTRACTSPLICESITES.out.txt
         )
-    }
-    else {
+    } else {
         println "Please select a valid aligner: 'star' or 'hisat2'"
     }
 
     
 
-    
+    /*
     (trimmed_files,seqtk_versions) = SEQTK_TRIM (
         ch_samplesheet
     )
@@ -140,7 +141,7 @@ workflow RNASEQUENCING {
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
     
-
+    */
    
 
     //

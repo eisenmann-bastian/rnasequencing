@@ -45,7 +45,6 @@ workflow NFCORE_RNASEQUENCING {
 
     take:
     samplesheet // channel: samplesheet read in from --input
-    trimmer    // string: trimmer choice from params
     fasta      // string: path to fasta file from params
     gtf        // string: path to gtf file from params
 
@@ -56,7 +55,6 @@ workflow NFCORE_RNASEQUENCING {
     //
     RNASEQUENCING (
         samplesheet,
-        trimmer,
         fasta,
         gtf
     )
@@ -89,7 +87,6 @@ workflow {
     //
     NFCORE_RNASEQUENCING (
         PIPELINE_INITIALISATION.out.samplesheet,
-        params.trimmer,
         params.fasta,
         params.gtf
     )
