@@ -70,62 +70,67 @@ workflow RNASEQUENCING {
             trimmed_files
         )
     }
-    
     ch_fasta_for_index = Channel.value([['id':'genome'], file(ch_fasta, checkIfExists: true)])
     ch_gtf_for_index = Channel.value([['id':'gtf'], file(ch_gtf, checkIfExists: true)])
+    if (params.aligner == 'star') {
+        // STAR
+        println "Using STAR for alignment"
 
-    // memory issues  
-    (index,versions) = STAR_GENOMEGENERATE (
-        ch_fasta_for_index,
-        ch_gtf_for_index
-    )
-    /*ch_star_index = STAR_GENOMEGENERATE.out.index
-    ch_versions = ch_versions.mix(STAR_GENOMEGENERATE.out.versions)
+        // memory issues  
+        (index,versions) = STAR_GENOMEGENERATE (
+            ch_fasta_for_index,
+            ch_gtf_for_index
+        )
+        /*ch_star_index = STAR_GENOMEGENERATE.out.index
+        ch_versions = ch_versions.mix(STAR_GENOMEGENERATE.out.versions)
 
-    (index,versions)=STAR_GENOMEGENERATE {
-        ch_star_refs,
-        ch_star_gtfs
-    }*/
-    ch_samplesheet.view()
-    ch_paths = ch_samplesheet.map { it[1] }
-   
-    (a,b) = GUNZIP (
-        ch_paths
-    )
-    a.view()
-    b.view()
-    STAR_ALIGN (
-        a,
-        index,
-        ch_gtf_for_index,
-        false,
-        "Illumina",
-        "Dummy"
-    )
+        (index,versions)=STAR_GENOMEGENERATE {
+            ch_star_refs,
+            ch_star_gtfs
+        }*/
+        ch_samplesheet.view()
+        ch_paths = ch_samplesheet.map { it[1] }
+    
+        (a,b) = GUNZIP (
+            ch_paths
+        )
+        a.view()
+        b.view()
+        STAR_ALIGN (
+            a,
+            index,
+            ch_gtf_for_index,
+            false,
+            "Illumina",
+            "Dummy"
+        )}
+    else if (params.aligner == 'hisat2') {
+        //HISAT2
+        ch_gtf = Channel.value([['id':'genome'], file(ch_gtf, checkIfExists: true)])
 
+        (txt, versions) = HISAT2_EXTRACTSPLICESITES(
+            ch_gtf
+        )
 
-    /* HISAT2
-    ch_gtf = Channel.value([['id':'genome'], file(ch_gtf, checkIfExists: true)])
+        (index, versions) = HISAT2_BUILD (
+            ch_fasta_for_index,
+            ch_gtf,
+            txt
+        )
 
-    (txt, versions) = HISAT2_EXTRACTSPLICESITES(
-        ch_gtf
-    )
+        HISAT2_ALIGN (
+            files_to_align,
+            index,
+            txt
+        )
+    }
+    else {
+        println "Please select a valid aligner: 'star' or 'hisat2'"
+    }
 
-    (index, versions) = HISAT2_BUILD (
-        ch_fasta_for_index,
-        ch_gtf,
-        txt
-    )
-
-    HISAT2_ALIGN (
-        files_to_align,
-        index,
-        txt
-    )*/
-   
     
 
-    /*
+    
     (trimmed_files,seqtk_versions) = SEQTK_TRIM (
         ch_samplesheet
     )
@@ -134,7 +139,7 @@ workflow RNASEQUENCING {
     
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-    */
+    
 
    
 
