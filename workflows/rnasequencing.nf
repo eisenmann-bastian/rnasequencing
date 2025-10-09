@@ -4,16 +4,21 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
+include { FASTQC as FASTQC_AFTER_TRIM } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
-include { TRIMGALORE             } from '../modules/nf-core/trimgalore/main'    
-include { SALMON_INDEX           } from '../modules/nf-core/salmon/index/main'    
-include { SALMON_QUANT           } from '../modules/nf-core/salmon/quant/main'    
+include { TRIMGALORE             } from '../modules/nf-core/trimgalore/main'      
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
-include { SEQTK_TRIM } from '../modules/nf-core/seqtk/trim/main' 
 
+include { SEQTK_TRIM             } from '../modules/nf-core/seqtk/trim/main' 
+include { STAR_ALIGN } from '../modules/nf-core/star/align/main'
+include { HISAT2_BUILD } from '../modules/nf-core/hisat2/build/main' 
+include { HISAT2_ALIGN } from '../modules/nf-core/hisat2/align/main'  
+include { HISAT2_EXTRACTSPLICESITES } from '../modules/nf-core/hisat2/extractsplicesites/main' 
+include { STAR_GENOMEGENERATE } from '../modules/nf-core/star/genomegenerate/main'                                                          
+include { GUNZIP } from '../modules/nf-core/gunzip/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -24,44 +29,114 @@ workflow RNASEQUENCING {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
+    ch_trimmer     // string: trimmer choice from params
+    ch_fasta       // string: path to fasta file from params
+    ch_gtf         // string: path to gtf file from params
+
     main:
 
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
-    //
-    // MODULE: Run FastQC
-    //
-   
 
+    ch_pre_trim_fastqc_reports = FASTQC (
+        ch_samplesheet
+    )
+
+    files_to_align = ch_samplesheet
+
+    if (ch_trimmer == "none") {
+        println "No trimming will be performed"
+        files_to_align = ch_samplesheet
+    } else {
+        if (ch_trimmer == "seqtk_trim") {
+            println "Using seqtk for trimming"
+            (trimmed_files, seqtk_versions) = SEQTK_TRIM (
+                ch_samplesheet
+            )
+            //ch_multiqc_files = ch_multiqc_files.mix(trimmed_files)
+            ch_versions = ch_versions.mix(seqtk_versions)
+        } else if (ch_trimmer == "trimgalore") {
+            println "Using TrimGalore for trimming"
+            (trimmed_files, logs, unpaired, html, zip, versions) = TRIMGALORE (
+                ch_samplesheet
+            )
+            /*trimmed_files.view()
+            ch_multiqc_files = ch_multiqc_files.mix(trimmed_files)
+            ch_versions = ch_versions.mix(versions)*/
+        }
+
+        
+        ch_after_trim_fastqc_reports = FASTQC_AFTER_TRIM (
+            trimmed_files
+        )
+    }
+    
+    ch_fasta_for_index = Channel.value([['id':'genome'], file(ch_fasta, checkIfExists: true)])
+    ch_gtf_for_index = Channel.value([['id':'gtf'], file(ch_gtf, checkIfExists: true)])
+
+    // memory issues  
+    (index,versions) = STAR_GENOMEGENERATE (
+        ch_fasta_for_index,
+        ch_gtf_for_index
+    )
+    /*ch_star_index = STAR_GENOMEGENERATE.out.index
+    ch_versions = ch_versions.mix(STAR_GENOMEGENERATE.out.versions)
+
+    (index,versions)=STAR_GENOMEGENERATE {
+        ch_star_refs,
+        ch_star_gtfs
+    }*/
     ch_samplesheet.view()
+    ch_paths = ch_samplesheet.map { it[1] }
+   
+    (a,b) = GUNZIP (
+        ch_paths
+    )
+    a.view()
+    b.view()
+    STAR_ALIGN (
+        a,
+        index,
+        ch_gtf_for_index,
+        false,
+        "Illumina",
+        "Dummy"
+    )
 
 
+    /* HISAT2
+    ch_gtf = Channel.value([['id':'genome'], file(ch_gtf, checkIfExists: true)])
+
+    (txt, versions) = HISAT2_EXTRACTSPLICESITES(
+        ch_gtf
+    )
+
+    (index, versions) = HISAT2_BUILD (
+        ch_fasta_for_index,
+        ch_gtf,
+        txt
+    )
+
+    HISAT2_ALIGN (
+        files_to_align,
+        index,
+        txt
+    )*/
+   
+    
+
+    /*
     (trimmed_files,seqtk_versions) = SEQTK_TRIM (
         ch_samplesheet
     )
     trimmed_files.view()
 
-    FASTQC (
-        trimmed_files
-    )
+    
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    */
 
-
-
-
-
-    //seqtk_versions.view()
-    
-    /*(a, b, c, d, e, f) = TRIMGALORE (
-        ch_samplesheet
-    )
-    a.view()
-    b.view()
-    c.view()
-    d.view()
-    e.view()
-    f.view()*/
+   
 
     //
     // Collate and save software versions
