@@ -23,6 +23,8 @@ include { PICARD_MARKDUPLICATES } from '../modules/nf-core/picard/markduplicates
 include { SAMTOOLS_SORT } from '../modules/nf-core/samtools/sort/main' 
 
 include { getGenomeAttribute } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
+include { SUBREAD_FEATURECOUNTS } from '../modules/nf-core/subread/featurecounts/main'                                                
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -35,42 +37,52 @@ workflow RNASEQUENCING {
     ch_samplesheet // channel: samplesheet read in from --input
 
     main:
-
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
 
-    FASTQC (
-        ch_samplesheet
-    )
+    ch_fasta_for_index = Channel.value([['id':'genome'], file(getGenomeAttribute('fasta'), checkIfExists: true)])
+    ch_gtf_for_index = Channel.value([['id':'gtf'], file(getGenomeAttribute('gtf'), checkIfExists: true)])
+
+    if (params.run_fastqc_at_start) {
+        println "Running FastQC on raw reads"
+        
+        FASTQC (
+            ch_samplesheet
+        )
+    }
 
     if (params.trimmer == "none") {
         println "No trimming will be performed"
+
+        ch_reads_to_align = ch_samplesheet
     } else {
         if (params.trimmer == "seqtk_trim") {
             println "Using seqtk for trimming"
-            
+
             SEQTK_TRIM (
                 ch_samplesheet
             )
             
-            FASTQC_AFTER_TRIM(
-                SEQTK_TRIM.out.reads
-            )
-            ch_versions.mix(SEQTK_TRIM.out.versions)
+            ch_trimmed_reads = SEQTK_TRIM.out.reads
         } else if (params.trimmer == "trimgalore") {
             println "Using TrimGalore for trimming"
+
             TRIMGALORE (
                 ch_samplesheet
             )
 
+            ch_trimmed_reads = TRIMGALORE.out.reads
+        }
+        if (params.run_fastqc_after_trim) {
+            println "Running FastQC on trimmed reads"
+
             FASTQC_AFTER_TRIM(
-                TRIMGALORE.out.reads
+                ch_trimmed_reads
             )
         }
-    }
 
-    ch_fasta_for_index = Channel.value([['id':'genome'], file(getGenomeAttribute('fasta'), checkIfExists: true)])
-    ch_gtf_for_index = Channel.value([['id':'gtf'], file(getGenomeAttribute('gtf'), checkIfExists: true)])
+        ch_reads_to_align = ch_trimmed_reads
+    }
 
     if (params.aligner == 'star') {
         // STAR
@@ -82,7 +94,7 @@ workflow RNASEQUENCING {
         )
 
         GUNZIP (
-            ch_samplesheet.map { it[1] }
+            ch_reads_to_align.map { it[1] }
         )
 
         STAR_ALIGN (
@@ -96,7 +108,7 @@ workflow RNASEQUENCING {
 
         SAMTOOLS_FAIDX (
             ch_fasta_for_index,
-            [[],[]], //Channel.of([]),
+            [[],[]],
             false
         )
 
@@ -112,7 +124,6 @@ workflow RNASEQUENCING {
             SAMTOOLS_FAIDX.out.fai
         )
     } else if (params.aligner == 'hisat2') {
-        //HISAT2
         HISAT2_EXTRACTSPLICESITES(
             ch_gtf_for_index
         )
@@ -124,10 +135,19 @@ workflow RNASEQUENCING {
         )
 
         HISAT2_ALIGN (
-            ch_samplesheet,
+            ch_reads_to_align,
             HISAT2_BUILD.out.index,
             HISAT2_EXTRACTSPLICESITES.out.txt
         )
+
+        ch_bam = HISAT2_ALIGN.out.bam.map { it[1] }
+        ch_gtf = ch_gtf_for_index.map { it[1] }
+
+        ch_featurecounts_input = ch_bam.combine(ch_gtf).map { bam, gtf ->
+            tuple([ id: 'genome' ], bam, gtf)
+        }
+
+        SUBREAD_FEATURECOUNTS(ch_featurecounts_input)                                             
     } else {
         println "Please select a valid aligner: 'star' or 'hisat2'"
     }
