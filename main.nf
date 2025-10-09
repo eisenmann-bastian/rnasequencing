@@ -43,8 +43,11 @@ workflow NFCORE_RNASEQUENCING {
 
     take:
     samplesheet // channel: samplesheet read in from --input
+<<<<<<< Updated upstream
     fasta      // string: path to fasta file from params
     gtf        // string: path to gtf file from params
+=======
+>>>>>>> Stashed changes
 
     main:
 
@@ -52,9 +55,13 @@ workflow NFCORE_RNASEQUENCING {
     // WORKFLOW: Run pipeline
     //
     RNASEQUENCING (
+<<<<<<< Updated upstream
         samplesheet,
         fasta,
         gtf
+=======
+        samplesheet
+>>>>>>> Stashed changes
     )
     emit:
     multiqc_report = RNASEQUENCING.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -84,9 +91,13 @@ workflow {
     // WORKFLOW: Run main workflow
     //
     NFCORE_RNASEQUENCING (
+<<<<<<< Updated upstream
         PIPELINE_INITIALISATION.out.samplesheet,
         params.fasta,
         params.gtf
+=======
+        PIPELINE_INITIALISATION.out.samplesheet
+>>>>>>> Stashed changes
     )
     //
     // SUBWORKFLOW: Run completion tasks

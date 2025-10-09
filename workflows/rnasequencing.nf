@@ -19,13 +19,10 @@ include { HISAT2_ALIGN } from '../modules/nf-core/hisat2/align/main'
 include { HISAT2_EXTRACTSPLICESITES } from '../modules/nf-core/hisat2/extractsplicesites/main' 
 include { STAR_GENOMEGENERATE } from '../modules/nf-core/star/genomegenerate/main'                                                          
 include { GUNZIP } from '../modules/nf-core/gunzip/main'
-<<<<<<< Updated upstream
 include { PICARD_MARKDUPLICATES } from '../modules/nf-core/picard/markduplicates/main'
 include { SAMTOOLS_SORT } from '../modules/nf-core/samtools/sort/main' 
-=======
-include { getGenomeAttribute } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
 
->>>>>>> Stashed changes
+include { getGenomeAttribute } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -36,11 +33,6 @@ workflow RNASEQUENCING {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
-<<<<<<< Updated upstream
-    ch_fasta       // string: path to fasta file from params
-    ch_gtf         // string: path to gtf file from params
-=======
->>>>>>> Stashed changes
 
     main:
 
@@ -51,55 +43,35 @@ workflow RNASEQUENCING {
         ch_samplesheet
     )
 
-<<<<<<< Updated upstream
-=======
-    files_to_align = ch_samplesheet
-
->>>>>>> Stashed changes
     if (params.trimmer == "none") {
         println "No trimming will be performed"
     } else {
         if (params.trimmer == "seqtk_trim") {
             println "Using seqtk for trimming"
+            
             SEQTK_TRIM (
                 ch_samplesheet
             )
-<<<<<<< Updated upstream
+            
             FASTQC_AFTER_TRIM(
                 SEQTK_TRIM.out.reads
             )
             ch_versions.mix(SEQTK_TRIM.out.versions)
-=======
-            //ch_multiqc_files = ch_multiqc_files.mix(trimmed_files)
-            ch_versions = ch_versions.mix(seqtk_versions)
->>>>>>> Stashed changes
         } else if (params.trimmer == "trimgalore") {
             println "Using TrimGalore for trimming"
             TRIMGALORE (
                 ch_samplesheet
             )
-<<<<<<< Updated upstream
+
             FASTQC_AFTER_TRIM(
                 TRIMGALORE.out.reads
             )
         }
     }
 
-    ch_fasta_for_index = Channel.value([['id':'genome'], file(ch_fasta, checkIfExists: true)])
-    ch_gtf_for_index = Channel.value([['id':'gtf'], file(ch_gtf, checkIfExists: true)])
-
-=======
-
-        }
-
-        
-        ch_after_trim_fastqc_reports = FASTQC_AFTER_TRIM (
-            trimmed_files 
-        )
-    }
     ch_fasta_for_index = Channel.value([['id':'genome'], file(getGenomeAttribute('fasta'), checkIfExists: true)])
     ch_gtf_for_index = Channel.value([['id':'gtf'], file(getGenomeAttribute('gtf'), checkIfExists: true)])
->>>>>>> Stashed changes
+
     if (params.aligner == 'star') {
         // STAR
         println "Using STAR for alignment"
@@ -108,17 +80,9 @@ workflow RNASEQUENCING {
             ch_fasta_for_index,
             ch_gtf_for_index
         )
-<<<<<<< Updated upstream
 
         GUNZIP (
             ch_samplesheet.map { it[1] }
-=======
-        ch_samplesheet.view()
-        ch_paths = ch_samplesheet.map { it[1] }
-    
-        (a,b) = GUNZIP (
-            ch_paths
->>>>>>> Stashed changes
         )
 
         STAR_ALIGN (
@@ -128,18 +92,6 @@ workflow RNASEQUENCING {
             false,
             "Illumina",
             "Dummy"
-<<<<<<< Updated upstream
-=======
-        )}
-    else if (params.aligner == 'hisat2') {
-        //HISAT2
-        ch_gtf = Channel.value([['id':'genome'], file(ch_gtf, checkIfExists: true)])
-        println "Type of ch_gtf: ${ch_gtf.getClass()}"
-        println "Type of params.gtf: ${params.gtf.getClass()}"
-
-        (txt, versions) = HISAT2_EXTRACTSPLICESITES(
-            ch_gtf
->>>>>>> Stashed changes
         )
 
         SAMTOOLS_FAIDX (
