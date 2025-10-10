@@ -1,107 +1,261 @@
-<h1>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/nf-core-rnasequencing_logo_dark.png">
-    <img alt="nf-core/rnasequencing" src="docs/images/nf-core-rnasequencing_logo_light.png">
-  </picture>
-</h1>
+# RNA-seq Analysis Pipeline
 
-[![GitHub Actions CI Status](https://github.com/nf-core/rnasequencing/actions/workflows/nf-test.yml/badge.svg)](https://github.com/nf-core/rnasequencing/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/nf-core/rnasequencing/actions/workflows/linting.yml/badge.svg)](https://github.com/nf-core/rnasequencing/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://nf-co.re/rnasequencing/results)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
-[![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
-
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A524.10.5-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
-[![nf-core template version](https://img.shields.io/badge/nf--core_template-3.3.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.3.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
-[![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
-[![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/nf-core/rnasequencing)
-
-[![Get help on Slack](http://img.shields.io/badge/slack-nf--core%20%23rnasequencing-4A154B?labelColor=000000&logo=slack)](https://nfcore.slack.com/channels/rnasequencing)[![Follow on Bluesky](https://img.shields.io/badge/bluesky-%40nf__core-1185fe?labelColor=000000&logo=bluesky)](https://bsky.app/profile/nf-co.re)[![Follow on Mastodon](https://img.shields.io/badge/mastodon-nf__core-6364ff?labelColor=FFFFFF&logo=mastodon)](https://mstdn.science/@nf_core)[![Watch on YouTube](http://img.shields.io/badge/youtube-nf--core-FF0000?labelColor=000000&logo=youtube)](https://www.youtube.com/c/nf-core)
+![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A524.10.5-brightgreen.svg)
+![Docker](https://img.shields.io/badge/docker-enabled-blue.svg)
+![Conda](https://img.shields.io/badge/conda-enabled-green.svg)
 
 ## Introduction
 
-**nf-core/rnasequencing** is a bioinformatics pipeline that ...
+**RNA-seq Analysis Pipeline** is a comprehensive bioinformatics pipeline for RNA sequencing data analysis. The pipeline processes paired-end or single-end Illumina RNA-seq data through quality control, trimming, alignment, quantification, and generates comprehensive reports. It supports both alignment-based and pseudo-alignment approaches for transcript quantification, making it suitable for various RNA-seq analysis needs.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+The pipeline integrates multiple state-of-the-art tools and provides flexible options for different analysis strategies, from basic gene-level counting to advanced transcript-level quantification with isoform detection.
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+## Pipeline Overview
 
-## Usage
+The pipeline performs the following main steps:
 
-> [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
+### Quality Control & Pre-processing
+1. **Raw Read QC** ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)) - Quality assessment of raw sequencing reads
+2. **Adapter Trimming** ([`TrimGalore`](https://github.com/FelixKrueger/TrimGalore) or [`SEQTK`](https://github.com/lh3/seqtk)) - Remove adapters and low-quality sequences
+3. **Post-trim QC** ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)) - Quality assessment after trimming
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
+### Reference Preparation
+4. **Transcriptome Generation** ([`GFFREAD`](https://github.com/gpertea/gffread)) - Extract transcript sequences from genome and GTF
+5. **Index Building** - Build indices for selected aligners and pseudo-aligners
 
-First, prepare a samplesheet with your input data that looks as follows:
+### Alignment & Quantification
+6. **RNA-seq Alignment** (Choose one):
+   - [`HISAT2`](https://github.com/DaehwanKimLab/hisat2) - Fast splice-aware aligner (default)
+   - [`STAR`](https://github.com/alexdobin/STAR) - Ultra-fast universal RNA-seq aligner
 
-`samplesheet.csv`:
+7. **Post-alignment Processing**:
+   - [`SAMtools`](https://github.com/samtools/samtools) - BAM sorting and indexing
+   - [`Picard MarkDuplicates`](https://broadinstitute.github.io/picard/) - Mark duplicate reads
 
-```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
-```
+8. **Quantification** (Multiple approaches):
+   - **Gene-level**: [`featureCounts`](https://github.com/ShiLab-Bioinformatics/subread) - Count reads per gene
+   - **Transcript-level**: [`SALMON`](https://github.com/COMBINE-lab/salmon) - Fast pseudo-alignment and quantification
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+### Reporting
+9. **Comprehensive Report** ([`MultiQC`](http://multiqc.info/)) - Aggregate all QC metrics and results
 
--->
+## Quick Start
 
-Now, you can run the pipeline using:
+### Prerequisites
 
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+- [Nextflow](https://www.nextflow.io/docs/latest/install) (≥24.10.5)
+- [Docker](https://docs.docker.com/engine/installation/) or [Conda](https://conda.io/miniconda.html)
+
+### Test Run
+
+Test the pipeline with provided test data:
 
 ```bash
-nextflow run nf-core/rnasequencing \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+nextflow run . -profile test,docker --outdir test_results
 ```
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
+### Full Analysis
 
-For more details and further functionality, please refer to the [usage documentation](https://nf-co.re/rnasequencing/usage) and the [parameter documentation](https://nf-co.re/rnasequencing/parameters).
+#### 1. Prepare Samplesheet
 
-## Pipeline output
+Create a CSV samplesheet with your input data:
 
-To see the results of an example test run with a full size dataset refer to the [results](https://nf-co.re/rnasequencing/results) tab on the nf-core website pipeline page.
-For more details about the output files and reports, please refer to the
-[output documentation](https://nf-co.re/rnasequencing/output).
+`samplesheet.csv`:
+```csv
+group,replicate,fastq_1,fastq_2,strandedness,library,sample
+WT,1,/path/to/sample1_R1.fastq.gz,/path/to/sample1_R2.fastq.gz,reverse,illumina,sample1
+WT,2,/path/to/sample2_R1.fastq.gz,/path/to/sample2_R2.fastq.gz,reverse,illumina,sample2
+TREATED,1,/path/to/sample3_R1.fastq.gz,/path/to/sample3_R2.fastq.gz,reverse,illumina,sample3
+```
 
-## Credits
+**Column descriptions:**
+- `group`: Experimental group/condition
+- `replicate`: Biological replicate number
+- `fastq_1`: Path to first read file (R1)
+- `fastq_2`: Path to second read file (R2, for paired-end)
+- `strandedness`: Library strandedness (`forward`, `reverse`, or `unstranded`)
+- `library`: Sequencing library type (e.g., `illumina`)
+- `sample`: Unique sample identifier
 
-nf-core/rnasequencing was originally written by Mykyta Borodin, Eisenmann Bastian.
+#### 2. Run the Pipeline
 
-We thank the following people for their extensive assistance in the development of this pipeline:
+**Basic usage:**
+```bash
+nextflow run . \
+    -profile docker \
+    --input samplesheet.csv \
+    --outdir results \
+    --genome sacCer3
+```
 
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
+**Advanced usage with custom parameters:**
+```bash
+nextflow run . \
+    -profile docker,arm \
+    --input samplesheet.csv \
+    --outdir results \
+    --genome sacCer3 \
+    --aligner hisat2 \
+    --pseudo_aligner salmon \
+    --trimmer trimgalore \
+    --run_fastqc_at_start true \
+    --run_fastqc_after_trim true
+```
 
-## Contributions and Support
+## Configuration Options
 
-If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
+### Execution Profiles
 
-For further information or help, don't hesitate to get in touch on the [Slack `#rnasequencing` channel](https://nfcore.slack.com/channels/rnasequencing) (you can join with [this invite](https://nf-co.re/join/slack)).
+- `docker` - Run with Docker containers
+- `conda` - Run with Conda environments  
+- `singularity` - Run with Singularity containers
+- `arm` - For Apple Silicon Macs (use with docker: `-profile docker,arm`)
+- `test` - Run with test data
+
+### Key Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--input` | - | Path to samplesheet CSV |
+| `--outdir` | - | Output directory |
+| `--genome` | - | Reference genome (e.g., `sacCer3`, `hg38`) |
+| `--aligner` | `hisat2` | RNA-seq aligner (`hisat2` or `star`) |
+| `--pseudo_aligner` | `salmon` | Pseudo-aligner (`salmon` or `none`) |
+| `--trimmer` | `trimgalore` | Read trimmer (`trimgalore` or `seqtk`) |
+| `--run_gene_counts` | `true` | Run gene-level quantification |
+| `--run_fastqc_at_start` | `true` | QC on raw reads |
+| `--run_fastqc_after_trim` | `true` | QC on trimmed reads |
+
+## Pipeline Output
+
+The pipeline generates the following outputs in the specified `--outdir`:
+
+### Main Results
+```
+results/
+├── fastqc/                     # Raw read quality control
+├── trimgalore/                 # Adapter trimming logs and stats
+├── hisat2/ (or star/)         # Alignment results and logs
+├── samtools/                   # Sorted BAM files and indices
+├── picard/                     # Duplicate marking metrics
+├── subread/                    # Gene-level count matrices
+├── salmon/                     # Transcript-level quantification
+│   ├── *.quant.sf             # Transcript abundance estimates
+│   └── aux_info/              # Auxiliary quantification info
+├── multiqc/                    # Comprehensive QC report
+│   └── multiqc_report.html    # Main report (open this first!)
+└── pipeline_info/             # Execution reports and metadata
+```
+
+### Key Output Files
+
+| File | Description |
+|------|-------------|
+| `multiqc/multiqc_report.html` | **Main QC report** - comprehensive overview |
+| `subread/combined_counts.txt` | Gene-level count matrix (all samples) |
+| `salmon/*/quant.sf` | Transcript abundance per sample |
+| `hisat2/*.bam` | Aligned reads (sorted BAM format) |
+| `pipeline_info/execution_report.html` | Pipeline execution metrics |
+
+### Quality Control Metrics
+
+The MultiQC report includes:
+- **Read quality** (FastQC): Base quality, GC content, adapter content
+- **Trimming stats** (TrimGalore): Reads trimmed, adapter removal
+- **Alignment stats** (HISAT2/STAR): Mapping rates, splice junctions
+- **Duplicate rates** (Picard): PCR duplicate percentages  
+- **Gene counting** (featureCounts): Assignment rates, feature types
+- **Transcript quantification** (SALMON): Library type, fragment length
+
+## Troubleshooting
+
+### Common Issues
+
+**SALMON quantification fails with 0 assigned fragments:**
+- Ensure GTF and genome FASTA are from the same reference build
+- Check that read strandedness is correctly specified
+- Verify input FASTQ files are not corrupted
+
+**MultiQC shows incorrect aligner (e.g., Bowtie2 instead of HISAT2):**
+- This is a known MultiQC detection issue - the actual analysis uses the correct aligner
+- Check `pipeline_info/` for accurate tool versions and execution details
+
+**Memory or disk space errors:**
+- Adjust resource limits in `conf/base.config`
+- Use smaller test datasets first
+- Monitor system resources during execution
+
+## Version History
+
+### v1.0.0dev (Current)
+- Initial implementation with dual quantification approach
+- Support for HISAT2 and STAR aligners
+- SALMON pseudo-alignment integration
+- Comprehensive MultiQC reporting
+- Docker and Conda execution support
+
+## Development & Contributions
+
+### Repository Structure
+```
+├── main.nf                    # Main pipeline script
+├── workflows/rnasequencing.nf # Core workflow logic
+├── modules/nf-core/          # Individual tool modules
+├── conf/                     # Configuration files
+├── assets/                   # Pipeline assets and examples
+└── misc/                     # Custom configurations and test data
+```
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Credits & Acknowledgments
+
+**RNA-seq Analysis Pipeline** was originally written by **Mykyta Borodin** and **Bastian Eisenmann** as part of the Computational Workflows course.
+
+### Built With
+- [Nextflow](https://nextflow.io/) - Workflow management system
+- [nf-core](https://nf-co.re/) - Framework and modules
+- [Docker](https://docker.com/) - Containerization platform
+
+### Tool Credits
+We acknowledge the developers of all integrated tools:
+- FastQC, TrimGalore, HISAT2, STAR, SALMON, SAMtools, Picard, featureCounts, MultiQC
 
 ## Citations
 
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use nf-core/rnasequencing for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
+## Citations
 
-<!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
+If you use this RNA-seq Analysis Pipeline for your research, please cite the following:
 
-An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
+### Pipeline
+- **RNA-seq Analysis Pipeline** - Borodin, M. & Eisenmann, B. (2025). Computational Workflows Course Project.
 
-You can cite the `nf-core` publication as follows:
+### Core Tools
+- **Nextflow**: Di Tommaso, P. et al. Nextflow enables reproducible computational workflows. _Nat Biotechnol_ 35, 316–319 (2017). [doi:10.1038/nbt.3820](https://doi.org/10.1038/nbt.3820)
+- **nf-core**: Ewels, P. et al. The nf-core framework for community-curated bioinformatics pipelines. _Nat Biotechnol_ 38, 276–278 (2020). [doi:10.1038/s41587-020-0439-x](https://doi.org/10.1038/s41587-020-0439-x)
 
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
+### Analysis Tools
+- **FastQC**: Andrews, S. (2010). FastQC: a quality control tool for high throughput sequence data.
+- **TrimGalore**: Krueger, F. (2015). Trim Galore: a wrapper tool around Cutadapt and FastQC.
+- **HISAT2**: Kim, D. et al. HISAT: a fast spliced aligner with low memory requirements. _Nat Methods_ 12, 357–360 (2015).
+- **STAR**: Dobin, A. et al. STAR: ultrafast universal RNA-seq aligner. _Bioinformatics_ 29, 15–21 (2013).
+- **SALMON**: Patro, R. et al. Salmon provides fast and bias-aware quantification of transcript expression. _Nat Methods_ 14, 417–419 (2017).
+- **SAMtools**: Li, H. et al. The Sequence Alignment/Map format and SAMtools. _Bioinformatics_ 25, 2078–2079 (2009).
+- **Picard**: Broad Institute. Picard Toolkit. http://broadinstitute.github.io/picard/
+- **featureCounts**: Liao, Y. et al. featureCounts: an efficient general purpose program for assigning sequence reads to genomic features. _Bioinformatics_ 30, 923–930 (2014).
+- **MultiQC**: Ewels, P. et al. MultiQC: summarize analysis results for multiple tools and samples in a single report. _Bioinformatics_ 32, 3047–3048 (2016).
+
+An extensive list of references for all tools can be found in the [`CITATIONS.md`](CITATIONS.md) file.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Happy RNA-seq analysis! 🧬📊**
