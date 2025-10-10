@@ -97,6 +97,44 @@
                 }
             }
         },
+        "qc_options": {
+            "title": "QC options",
+            "type": "object",
+            "fa_icon": "fas fa-check",
+            "description": "Options to adjust the QC steps.",
+            "properties": {
+                "run_fastqc_at_start": {
+                    "type": "boolean",
+                    "description": "Run FastQC on raw reads at the start of the pipeline.",
+                    "fa_icon": "fas fa-check"
+                },
+                "run_fastqc_after_trim": {
+                    "type": "boolean",
+                    "description": "Run FastQC on trimmed reads after trimming step.",
+                    "fa_icon": "fas fa-check"
+                },
+                "mark_duplicates": {
+                    "type": "boolean",
+                    "description": "Mark duplicate reads in the alignment BAM files using Picard MarkDuplicates. (Only suitable for star and hisat2 modes)",
+                    "fa_icon": "fas fa-check"
+                }
+            }
+        },
+        "aligner_options": {
+            "title": "Aligner options",
+            "type": "object",
+            "fa_icon": "fas fa-align-left",
+            "description": "Options to adjust the alignment step.",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "default": "hisat2",
+                    "description": "Specifies the mode of the pipeline - available options are 'salmon', 'hisat2' and 'star'.",
+                    "fa_icon": "fas fa-align-left",
+                    "enum": ["salmon", "hisat2", "star"]
+                }
+            }
+        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -142,6 +180,29 @@
                     "description": "Institutional config URL link.",
                     "hidden": true,
                     "fa_icon": "fas fa-users-cog"
+                }
+            }
+        },
+        "tool_options": {
+            "title": "Tool options",
+            "type": "object",
+            "fa_icon": "fas fa-toolbox",
+            "description": "Options to adjust the parameters for specific tools.",
+            "properties": {
+                "save_unaligned": {
+                    "type": "boolean",
+                    "description": "Save unaligned reads to a separate FASTQ file.",
+                    "fa_icon": "fas fa-save",
+                    "default": false,
+                    "help_text": "If running in `hisat2` or `star` mode, setting this option will save any reads that do not align to the reference genome to a separate FASTQ file for each sample. This can be useful if you want to check for contamination or run additional analyses on the unaligned reads."
+                },
+                "hisat2_build_memory": {
+                    "type": "string",
+                    "description": "Memory to allocate to hisat2-build when building the hisat2 index.",
+                    "fa_icon": "fas fa-memory",
+                    "default": "8.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+                    "help_text": "Amount of memory to allocate to `hisat2-build` when building the hisat2 index from the provided FASTA file. This should be set according to the size of the genome you are indexing. For example, for the human genome (GRCh38) you might want to set this to `16.GB` or higher."
                 }
             }
         },
@@ -258,6 +319,12 @@
         },
         {
             "$ref": "#/$defs/generic_options"
+        },
+        {
+            "$ref": "#/$defs/aligner_options"
+        },
+        {
+            "$ref": "#/$defs/qc_options"
         }
     ]
 }
