@@ -23,7 +23,10 @@ include { PICARD_MARKDUPLICATES } from '../modules/nf-core/picard/markduplicates
 include { SAMTOOLS_SORT } from '../modules/nf-core/samtools/sort/main' 
 
 include { getGenomeAttribute } from '../subworkflows/local/utils_nfcore_rnasequencing_pipeline'
-include { SUBREAD_FEATURECOUNTS } from '../modules/nf-core/subread/featurecounts/main'                                                
+include { SUBREAD_FEATURECOUNTS } from '../modules/nf-core/subread/featurecounts/main'
+include { GFFREAD } from '../modules/nf-core/gffread/main'
+include { SALMON_INDEX } from '../modules/nf-core/salmon/index/main'
+include { SALMON_QUANT } from '../modules/nf-core/salmon/quant/main'                                                
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,6 +85,39 @@ workflow RNASEQUENCING {
         }
 
         ch_reads_to_align = ch_trimmed_reads
+    }
+
+    //
+    // PSEUDO-ALIGNER: Transcript quantification with SALMON
+    //
+    if (params.pseudo_aligner == 'salmon') {
+        println "Running SALMON for transcript quantification"
+        
+        // Generate transcriptome FASTA from genome and GTF using GFFREAD
+        GFFREAD (
+            ch_gtf_for_index.map{meta, gtf -> [meta, gtf]},    // tuple val(meta), path(gff)
+            ch_fasta_for_index.map{it[1]}                      // path fasta
+        )
+        ch_versions = ch_versions.mix(GFFREAD.out.versions.first())
+        
+        // Create SALMON index with transcriptome as main target, genome as decoy
+        SALMON_INDEX (
+            ch_fasta_for_index.map{it[1]},                     // genome_fasta (as decoy)
+            GFFREAD.out.gffread_fasta.map{it[1]}               // transcript_fasta (from GFFREAD)
+        )
+        ch_versions = ch_versions.mix(SALMON_INDEX.out.versions.first())
+
+        // Quantify transcripts with SALMON
+        SALMON_QUANT (
+            ch_reads_to_align,                                 // tuple val(meta), path(reads)
+            SALMON_INDEX.out.index,                            // path index
+            ch_gtf_for_index.map{it[1]},                       // path gtf
+            GFFREAD.out.gffread_fasta.map{it[1]},              // path transcript_fasta (from GFFREAD)
+            false,                                             // val alignment_mode
+            []                                                 // val lib_type (auto-detect)
+        )
+        ch_versions = ch_versions.mix(SALMON_QUANT.out.versions.first())
+        ch_multiqc_files = ch_multiqc_files.mix(SALMON_QUANT.out.results.collect{it[1]})
     }
 
     if (params.aligner == 'star') {
