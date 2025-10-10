@@ -52,6 +52,8 @@ workflow RNASEQUENCING {
         FASTQC (
             ch_samplesheet
         )
+        ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+        ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     }
 
     if (params.trimmer == "none") {
@@ -73,6 +75,8 @@ workflow RNASEQUENCING {
             TRIMGALORE (
                 ch_samplesheet
             )
+            ch_versions = ch_versions.mix(TRIMGALORE.out.versions.first())
+            ch_multiqc_files = ch_multiqc_files.mix(TRIMGALORE.out.log.collect{it[1]})
 
             ch_trimmed_reads = TRIMGALORE.out.reads
         }
@@ -82,6 +86,8 @@ workflow RNASEQUENCING {
             FASTQC_AFTER_TRIM(
                 ch_trimmed_reads
             )
+            ch_versions = ch_versions.mix(FASTQC_AFTER_TRIM.out.versions.first())
+            ch_multiqc_files = ch_multiqc_files.mix(FASTQC_AFTER_TRIM.out.zip.collect{it[1]})
         }
 
         ch_reads_to_align = ch_trimmed_reads
@@ -141,6 +147,8 @@ workflow RNASEQUENCING {
             "Illumina",
             "Dummy"
         )
+        ch_versions = ch_versions.mix(STAR_ALIGN.out.versions.first())
+        ch_multiqc_files = ch_multiqc_files.mix(STAR_ALIGN.out.log_final.collect{it[1]})
 
         SAMTOOLS_FAIDX (
             ch_fasta_for_index,
@@ -153,12 +161,15 @@ workflow RNASEQUENCING {
             ch_fasta_for_index,
             "bai"
         )
+        ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions.first())
 
         PICARD_MARKDUPLICATES (
             SAMTOOLS_SORT.out.bam,
             ch_fasta_for_index,
             SAMTOOLS_FAIDX.out.fai
         )
+        ch_versions = ch_versions.mix(PICARD_MARKDUPLICATES.out.versions.first())
+        ch_multiqc_files = ch_multiqc_files.mix(PICARD_MARKDUPLICATES.out.metrics.collect{it[1]})
     } else if (params.aligner == 'hisat2') {
         HISAT2_EXTRACTSPLICESITES(
             ch_gtf_for_index
@@ -175,15 +186,22 @@ workflow RNASEQUENCING {
             HISAT2_BUILD.out.index,
             HISAT2_EXTRACTSPLICESITES.out.txt
         )
+        ch_versions = ch_versions.mix(HISAT2_ALIGN.out.versions.first())
+        ch_multiqc_files = ch_multiqc_files.mix(HISAT2_ALIGN.out.summary.collect{it[1]})
 
         ch_bam = HISAT2_ALIGN.out.bam.map { it[1] }
         ch_gtf = ch_gtf_for_index.map { it[1] }
 
-        ch_featurecounts_input = ch_bam.combine(ch_gtf).map { bam, gtf ->
-            tuple([ id: 'genome' ], bam, gtf)
-        }
+        // Optional gene-level quantification with featureCounts
+        if (params.run_gene_counts) {
+            ch_featurecounts_input = ch_bam.combine(ch_gtf).map { bam, gtf ->
+                tuple([ id: 'genome' ], bam, gtf)
+            }
 
-        SUBREAD_FEATURECOUNTS(ch_featurecounts_input)                                             
+            SUBREAD_FEATURECOUNTS(ch_featurecounts_input)
+            ch_versions = ch_versions.mix(SUBREAD_FEATURECOUNTS.out.versions.first())
+            ch_multiqc_files = ch_multiqc_files.mix(SUBREAD_FEATURECOUNTS.out.summary.collect{it[1]})
+        }
     } else {
         println "Please select a valid aligner: 'star' or 'hisat2'"
     }
