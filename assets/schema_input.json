@@ -46,8 +46,13 @@
                     "iontorrent"
                 ],
                 "description": "Sequencing platform or library type must be one of 'illumina', 'nanopore', 'pacbio', 'bgiseq' or 'iontorrent'"
+            },
+            "seq_center": {
+                "type": "string",
+                "pattern": "^.*$",
+                "errorMessage": "Sequencing center"
             }
         },
-        "required": ["sample", "fastq_1", "library"]
+        "required": ["sample", "fastq_1", "strandedness", "library", "seq_center"]
     }
 }

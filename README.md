@@ -62,27 +62,28 @@ Create a CSV samplesheet with your input data:
 
 `samplesheet.csv`:
 ```csv
-group,replicate,fastq_1,fastq_2,strandedness,library,sample
-WT,1,/path/to/sample1_R1.fastq.gz,/path/to/sample1_R2.fastq.gz,reverse,illumina,sample1
-WT,2,/path/to/sample2_R1.fastq.gz,/path/to/sample2_R2.fastq.gz,reverse,illumina,sample2
-TREATED,1,/path/to/sample3_R1.fastq.gz,/path/to/sample3_R2.fastq.gz,reverse,illumina,sample3
+sample,fastq_1,fastq_2,strandedness,library,seq_center
+SRR6357070_2,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357070_1.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357070_2.fastq.gz,reverse,illumina,N.A.
+SRR6357071_2,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357071_1.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357071_2.fastq.gz,reverse,illumina,N.A.
+SRR6357072_2,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357072_1.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357072_2.fastq.gz,reverse,illumina,N.A.
+SRR6357076_1,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357076_1.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357076_2.fastq.gz,reverse,illumina,N.A.
 ```
 
 **Column descriptions:**
-- `group`: Experimental group/condition
-- `replicate`: Biological replicate number
+- `sample`: Unique sample identifier
 - `fastq_1`: Path to first read file (R1)
 - `fastq_2`: Path to second read file (R2, for paired-end)
 - `strandedness`: Library strandedness (`forward`, `reverse`, or `unstranded`)
 - `library`: Sequencing library type (e.g., `illumina`)
-- `sample`: Unique sample identifier
+- `seq_center`: Sequencing center
+
 
 #### 2. Run the Pipeline
 
 **Basic usage:**
 ```bash
 nextflow run . \
-    -profile docker \
+    -profile docker,test \
     --input samplesheet.csv \
     --outdir results \
     --genome sacCer3
@@ -95,8 +96,8 @@ nextflow run . \
     --input samplesheet.csv \
     --outdir results \
     --genome sacCer3 \
-    --aligner hisat2 \
-    --pseudo_aligner salmon \
+    --mode hisat2 \
+    --mark_duplicates true \
     --trimmer trimgalore \
     --run_fastqc_at_start true \
     --run_fastqc_after_trim true
@@ -119,10 +120,9 @@ nextflow run . \
 | `--input` | - | Path to samplesheet CSV |
 | `--outdir` | - | Output directory |
 | `--genome` | - | Reference genome (e.g., `sacCer3`, `hg38`) |
-| `--aligner` | `hisat2` | RNA-seq aligner (`hisat2` or `star`) |
-| `--pseudo_aligner` | `salmon` | Pseudo-aligner (`salmon` or `none`) |
+| `--mode` | `hisat2` | RNA-seq mode (`salmon`, `hisat2` or `star`) |
 | `--trimmer` | `trimgalore` | Read trimmer (`trimgalore` or `seqtk`) |
-| `--run_gene_counts` | `true` | Run gene-level quantification |
+| `--mark_duplicates` | `true` | Mark duplicates|
 | `--run_fastqc_at_start` | `true` | QC on raw reads |
 | `--run_fastqc_after_trim` | `true` | QC on trimmed reads |
 
@@ -135,7 +135,7 @@ The pipeline generates the following outputs in the specified `--outdir`:
 results/
 ├── fastqc/                     # Raw read quality control
 ├── trimgalore/                 # Adapter trimming logs and stats
-├── hisat2/ (or star/)         # Alignment results and logs
+├── hisat2/ (or star/)          # Alignment results and logs
 ├── samtools/                   # Sorted BAM files and indices
 ├── picard/                     # Duplicate marking metrics
 ├── subread/                    # Gene-level count matrices
@@ -153,8 +153,8 @@ results/
 |------|-------------|
 | `multiqc/multiqc_report.html` | **Main QC report** - comprehensive overview |
 | `subread/combined_counts.txt` | Gene-level count matrix (all samples) |
-| `salmon/*/quant.sf` | Transcript abundance per sample |
-| `hisat2/*.bam` | Aligned reads (sorted BAM format) |
+| `salmon/*/quant.sf` | Transcript abundance per sample for mode salmon |
+| `subread/id.featureCounts.tsv` | For mode hisat2 / star|
 | `pipeline_info/execution_report.html` | Pipeline execution metrics |
 
 ### Quality Control Metrics

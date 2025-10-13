@@ -43,8 +43,11 @@ workflow RNASEQUENCING {
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
 
-    ch_fasta_for_index = Channel.value([['id':'genome'], file(getGenomeAttribute('fasta'), checkIfExists: true)])
-    ch_gtf_for_index = Channel.value([['id':'gtf'], file(getGenomeAttribute('gtf'), checkIfExists: true)])
+    ch_fasta = file(getGenomeAttribute('fasta'), checkIfExists: true)
+    ch_gtf = file(getGenomeAttribute('gtf'), checkIfExists: true)
+
+    ch_fasta_for_index = Channel.value([['id':'genome'], ch_fasta])
+    ch_gtf_for_index = Channel.value([['id':'gtf'], ch_gtf])
 
     if (params.run_fastqc_at_start) {
         println "Running FastQC on raw reads"
@@ -93,132 +96,136 @@ workflow RNASEQUENCING {
         ch_reads_to_align = ch_trimmed_reads
     }
 
-    //
-    // PSEUDO-ALIGNER: Transcript quantification with SALMON
-    //
-    if (params.pseudo_aligner == 'salmon') {
+    if (params.mode == 'salmon') {
         println "Running SALMON for transcript quantification"
-        
-        // Generate transcriptome FASTA from genome and GTF using GFFREAD
+
         GFFREAD (
-            ch_gtf_for_index.map{meta, gtf -> [meta, gtf]},    // tuple val(meta), path(gff)
-            ch_fasta_for_index.map{it[1]}                      // path fasta
+            ch_gtf_for_index.map{meta, gtf -> [meta, gtf]},    
+            ch_fasta_for_index.map{it[1]}                      
         )
         ch_versions = ch_versions.mix(GFFREAD.out.versions.first())
         
-        // Create SALMON index with transcriptome as main target, genome as decoy
         SALMON_INDEX (
-            ch_fasta_for_index.map{it[1]},                     // genome_fasta (as decoy)
-            GFFREAD.out.gffread_fasta.map{it[1]}               // transcript_fasta (from GFFREAD)
+            ch_fasta_for_index.map{it[1]},                     
+            GFFREAD.out.gffread_fasta.map{it[1]}               
         )
         ch_versions = ch_versions.mix(SALMON_INDEX.out.versions.first())
 
-        // Quantify transcripts with SALMON
         SALMON_QUANT (
-            ch_reads_to_align,                                 // tuple val(meta), path(reads)
-            SALMON_INDEX.out.index,                            // path index
-            ch_gtf_for_index.map{it[1]},                       // path gtf
-            GFFREAD.out.gffread_fasta.map{it[1]},              // path transcript_fasta (from GFFREAD)
-            false,                                             // val alignment_mode
-            []                                                 // val lib_type (auto-detect)
+            ch_reads_to_align,                               
+            SALMON_INDEX.out.index,                          
+            ch_gtf_for_index.map{it[1]},                     
+            GFFREAD.out.gffread_fasta.map{it[1]},            
+            false,                                           
+            []                                               
         )
         ch_versions = ch_versions.mix(SALMON_QUANT.out.versions.first())
         ch_multiqc_files = ch_multiqc_files.mix(SALMON_QUANT.out.results.collect{it[1]})
-    }
+    } else {
+        ch_bam_hisat2 = Channel.empty()
+        ch_bam_star   = Channel.empty()
+        ch_bam_dedup  = Channel.empty()
 
-    if (params.aligner == 'star') {
-        // STAR
-        println "Using STAR for alignment"
+        if (params.mode == 'hisat2') {
+            HISAT2_EXTRACTSPLICESITES(
+                ch_gtf_for_index
+            )
 
-        STAR_GENOMEGENERATE (
-            ch_fasta_for_index,
-            ch_gtf_for_index
-        )
+            HISAT2_BUILD (
+                ch_fasta_for_index,
+                ch_gtf_for_index,
+                HISAT2_EXTRACTSPLICESITES.out.txt
+            )
 
-        GUNZIP (
-            ch_reads_to_align.map { it[1] }
-        )
+            HISAT2_ALIGN (
+                ch_reads_to_align,
+                HISAT2_BUILD.out.index,
+                HISAT2_EXTRACTSPLICESITES.out.txt
+            )
 
-        STAR_ALIGN (
-            GUNZIP.out.gunzip,
-            STAR_GENOMEGENERATE.out.index,
-            ch_gtf_for_index,
-            false,
-            "Illumina",
-            "Dummy"
-        )
-        ch_versions = ch_versions.mix(STAR_ALIGN.out.versions.first())
-        ch_multiqc_files = ch_multiqc_files.mix(STAR_ALIGN.out.log_final.collect{it[1]})
+            ch_versions = ch_versions.mix(HISAT2_ALIGN.out.versions.first())
+            ch_multiqc_files = ch_multiqc_files.mix(HISAT2_ALIGN.out.summary.collect{it[1]})
 
-        SAMTOOLS_FAIDX (
-            ch_fasta_for_index,
-            [[],[]],
-            false
-        )
+            ch_bam_hisat2 = HISAT2_ALIGN.out.bam
+        }
+        if (params.mode == 'star') {
+            // STAR
+            println "Using STAR for alignment"
 
-        SAMTOOLS_SORT(
-            STAR_ALIGN.out.bam,
-            ch_fasta_for_index,
-            "bai"
-        )
-        ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions.first())
-
-        PICARD_MARKDUPLICATES (
-            SAMTOOLS_SORT.out.bam,
-            ch_fasta_for_index,
-            SAMTOOLS_FAIDX.out.fai
-        )
-        ch_versions = ch_versions.mix(PICARD_MARKDUPLICATES.out.versions.first())
-        ch_multiqc_files = ch_multiqc_files.mix(PICARD_MARKDUPLICATES.out.metrics.collect{it[1]})
-    } else if (params.aligner == 'hisat2') {
-        HISAT2_EXTRACTSPLICESITES(
-            ch_gtf_for_index
-        )
-
-        HISAT2_BUILD (
-            ch_fasta_for_index,
-            ch_gtf_for_index,
-            HISAT2_EXTRACTSPLICESITES.out.txt
-        )
-
-        HISAT2_ALIGN (
-            ch_reads_to_align,
-            HISAT2_BUILD.out.index,
-            HISAT2_EXTRACTSPLICESITES.out.txt
-        )
-        ch_versions = ch_versions.mix(HISAT2_ALIGN.out.versions.first())
-        ch_multiqc_files = ch_multiqc_files.mix(HISAT2_ALIGN.out.summary.collect{it[1]})
-
-        ch_bam = HISAT2_ALIGN.out.bam.map { it[1] }
-        ch_gtf = ch_gtf_for_index.map { it[1] }
-
-        // Optional gene-level quantification with featureCounts
-        if (params.run_gene_counts) {
-            ch_featurecounts_input = ch_bam.combine(ch_gtf).map { bam, gtf ->
-                tuple([ id: 'genome' ], bam, gtf)
+            if (params.trimmer != "none") {
+                ch_samplesheet
+                    .map { meta, reads ->
+                        def invalid = reads.any { it.toString().endsWith('.gz') }
+                        if (invalid) {
+                            throw new IllegalArgumentException("❌ gzipped (.gz) fastq files are not yet supported when using a trimmer with star alignment: ${reads}")
+                        }
+                        tuple(meta, reads)
+                }
             }
 
-            SUBREAD_FEATURECOUNTS(ch_featurecounts_input)
-            ch_versions = ch_versions.mix(SUBREAD_FEATURECOUNTS.out.versions.first())
-            ch_multiqc_files = ch_multiqc_files.mix(SUBREAD_FEATURECOUNTS.out.summary.collect{it[1]})
+            STAR_GENOMEGENERATE (
+                ch_fasta_for_index,
+                ch_gtf_for_index
+            )
+
+            GUNZIP (
+                ch_reads_to_align.map { it[1] }
+            )
+
+            STAR_ALIGN (
+                GUNZIP.out.gunzip,
+                STAR_GENOMEGENERATE.out.index,
+                ch_gtf_for_index,
+                false,
+                "Illumina",
+                "n.a."
+            )
+            ch_versions = ch_versions.mix(STAR_ALIGN.out.versions.first())
+            ch_multiqc_files = ch_multiqc_files.mix(STAR_ALIGN.out.log_final.collect{it[1]})
+
+            ch_bam_star = STAR_ALIGN.out.bam
         }
-    } else {
-        println "Please select a valid aligner: 'star' or 'hisat2'"
+
+        ch_bam = ch_bam_hisat2.mix(ch_bam_star)
+
+        if (params.mark_duplicates) {
+            SAMTOOLS_FAIDX (
+                ch_fasta_for_index,
+                [[],[]],
+                false
+            )
+
+            SAMTOOLS_SORT(
+                ch_bam,
+                ch_fasta_for_index,
+                "bai"
+            )
+            ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions.first())
+
+            PICARD_MARKDUPLICATES (
+                SAMTOOLS_SORT.out.bam,
+                ch_fasta_for_index,
+                SAMTOOLS_FAIDX.out.fai
+            )
+
+            ch_bam_dedup = PICARD_MARKDUPLICATES.out.bam
+
+            ch_versions = ch_versions.mix(PICARD_MARKDUPLICATES.out.versions.first())
+            ch_multiqc_files = ch_multiqc_files.mix(PICARD_MARKDUPLICATES.out.metrics.collect{it[1]})
+        }
+
+        ch_final_bam = params.mark_duplicates ? ch_bam_dedup : ch_bam
+
+        ch_featurecounts_input = ch_final_bam.map { meta, bam_file ->
+            tuple(meta, bam_file, file(ch_gtf))
+        }
+        SUBREAD_FEATURECOUNTS(ch_featurecounts_input)
+
+        ch_versions = ch_versions.mix(SUBREAD_FEATURECOUNTS.out.versions.first())
+        ch_multiqc_files = ch_multiqc_files.mix(SUBREAD_FEATURECOUNTS.out.summary.collect{it[1]})
     }
 
-
-    /*
-    (trimmed_files,seqtk_versions) = SEQTK_TRIM (
-        ch_samplesheet
-    )
-    trimmed_files.view()
-
-    
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-    
-    */
-   
+    ch_bam = ch_bam_hisat2.mix(ch_bam_star)
 
     //
     // Collate and save software versions
@@ -230,7 +237,6 @@ workflow RNASEQUENCING {
             sort: true,
             newLine: true
         ).set { ch_collated_versions }
-
 
     //
     // MODULE: MultiQC
@@ -272,9 +278,10 @@ workflow RNASEQUENCING {
         []
     )
 
-    emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
-    versions            = ch_versions                 // channel: [ path(versions.yml) ]
-   
+    emit:
+    multiqc_report      = MULTIQC.out.report.toList()
+    versions            = ch_versions                 
+    quantification      = params.mode == 'salmon' ? SALMON_QUANT.out.results : SUBREAD_FEATURECOUNTS.out.counts 
 }
 
 /*

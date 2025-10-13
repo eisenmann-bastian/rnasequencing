@@ -90,10 +90,10 @@
             "properties": {
                 "trimmer": {
                     "type": "string",
-                    "default": "trimgalore",
-                    "description": "Specifies the trimming tool to use - available options are 'trimgalore' and 'seqtk_trim'.",
+                    "default": "none",
+                    "description": "Specifies the trimming tool to use - available options are 'none', 'trimgalore' and 'seqtk_trim'.",
                     "fa_icon": "fas fa-cut",
-                    "enum": ["trimgalore", "seqtk_trim"]
+                    "enum": ["none", "trimgalore", "seqtk_trim"]
                 }
             }
         },
@@ -325,6 +325,9 @@
         },
         {
             "$ref": "#/$defs/qc_options"
+        },
+        {
+            "$ref": "#/$defs/tool_options"
         }
     ]
 }
