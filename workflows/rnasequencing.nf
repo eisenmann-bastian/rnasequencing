@@ -225,8 +225,6 @@ workflow RNASEQUENCING {
         ch_multiqc_files = ch_multiqc_files.mix(SUBREAD_FEATURECOUNTS.out.summary.collect{it[1]})
     }
 
-    ch_bam = ch_bam_hisat2.mix(ch_bam_star)
-
     //
     // Collate and save software versions
     //
