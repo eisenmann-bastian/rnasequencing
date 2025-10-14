@@ -51,7 +51,7 @@ The pipeline performs the following main steps:
 Test the pipeline with provided test data:
 
 ```bash
-nextflow run . -profile test,docker --outdir test_results
+nextflow run . -profile test,docker --input ./assets/samplesheet.csv --outdir test_results
 ```
 
 ### Full Analysis
