@@ -70,7 +70,8 @@ workflow RNASEQUENCING {
             SEQTK_TRIM (
                 ch_samplesheet
             )
-            
+
+            ch_versions = ch_versions.mix(SEQTK_TRIM.out.versions.first())
             ch_trimmed_reads = SEQTK_TRIM.out.reads
         } else if (params.trimmer == "trimgalore") {
             println "Using TrimGalore for trimming"
@@ -171,6 +172,7 @@ workflow RNASEQUENCING {
             GUNZIP (
                 ch_reads_to_align.map { it[1] }
             )
+            ch_versions = ch_versions.mix(GUNZIP.out.versions.first())
 
             STAR_ALIGN (
                 GUNZIP.out.gunzip,

@@ -185,6 +185,10 @@ The MultiQC report includes:
 - Use smaller test datasets first
 - Monitor system resources during execution
 
+**Test profile can not be executed due (path)/assets/samplesheet does not match regex:**
+- Ensure that the project path does not include whitespaces
+- Use parameter --input ./assets/samplesheet.csv  in addition
+
 ## Version History
 
 ### v1.0.0dev (Current)
